@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-01-02 14:26:54",
+  "provider": "Sesterce",
+  "providers": {
+    "Sesterce": {
+      "name": "Sesterce",
+      "url": "https://www.sesterce.com/pricing",
+      "variants": {
+        "H200 (Sesterce)": {
+          "gpu_model": "H200",
+          "gpu_memory": "141GB",
+          "price_per_hour": 2.25,
+          "currency": "USD",
+          "availability": "on-demand"
+        }
+      }
+    }
+  },
+  "notes": {
+    "gpu_model": "NVIDIA H200",
+    "gpu_memory": "141GB HBM3e",
+    "pricing_type": "On-Demand",
+    "source": "https://www.sesterce.com/pricing"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-01-02 16:54:31",
+  "provider": "GMICloud",
+  "providers": {
+    "GMICloud": {
+      "name": "GMI Cloud",
+      "url": "https://www.gmicloud.ai/nvidia-h200",
+      "variants": {
+        "H200 (GMI Cloud)": {
+          "gpu_model": "H200",
+          "gpu_memory": "141GB",
+          "price_per_hour": 2.5,
+          "currency": "USD",
+          "availability": "on-demand"
+        }
+      }
+    }
+  },
+  "notes": {
+    "gpu_model": "NVIDIA H200",
+    "gpu_memory": "141GB HBM3e",
+    "pricing_type": "On-Demand",
+    "source": "https://www.gmicloud.ai/nvidia-h200"
+  }
+}

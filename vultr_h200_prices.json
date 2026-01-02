@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-01-02 15:38:40",
+  "provider": "Vultr",
+  "providers": {
+    "Vultr": {
+      "name": "Vultr",
+      "url": "https://www.vultr.com/pricing/",
+      "variants": {
+        "H200 (Vultr)": {
+          "gpu_model": "H200",
+          "gpu_memory": "141GB",
+          "price_per_hour": 1.99,
+          "currency": "USD",
+          "availability": "on-demand"
+        }
+      }
+    }
+  },
+  "notes": {
+    "gpu_model": "NVIDIA H200",
+    "gpu_memory": "141GB HBM3e",
+    "pricing_type": "On-Demand",
+    "source": "https://www.vultr.com/pricing/"
+  }
+}

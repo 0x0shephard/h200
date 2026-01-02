@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-01-02 14:26:59",
+  "provider": "HyperStack",
+  "providers": {
+    "HyperStack": {
+      "name": "HyperStack Cloud",
+      "url": "https://www.hyperstack.cloud/gpu-pricing",
+      "variants": {
+        "H200 (HyperStack)": {
+          "gpu_model": "H200",
+          "gpu_memory": "141GB",
+          "price_per_hour": 3.5,
+          "currency": "USD",
+          "availability": "on-demand"
+        }
+      }
+    }
+  },
+  "notes": {
+    "gpu_model": "NVIDIA H200",
+    "gpu_memory": "141GB HBM3e",
+    "pricing_type": "On-Demand",
+    "source": "https://www.hyperstack.cloud/gpu-pricing"
+  }
+}

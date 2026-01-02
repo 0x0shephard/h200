@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-01-02 16:00:57",
+  "provider": "FluidStack",
+  "providers": {
+    "FluidStack": {
+      "name": "FluidStack",
+      "url": "https://www.fluidstack.io/resources/pricing",
+      "variants": {
+        "H200 (FluidStack)": {
+          "gpu_model": "H200",
+          "gpu_memory": "141GB",
+          "price_per_hour": 2.3,
+          "currency": "USD",
+          "availability": "on-demand"
+        }
+      }
+    }
+  },
+  "notes": {
+    "gpu_model": "NVIDIA H200",
+    "gpu_memory": "141GB HBM3e",
+    "pricing_type": "On-Demand",
+    "source": "https://www.fluidstack.io/resources/pricing"
+  }
+}

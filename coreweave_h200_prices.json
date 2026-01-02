@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-01-02 14:25:27",
+  "provider": "CoreWeave",
+  "providers": {
+    "CoreWeave": {
+      "name": "CoreWeave",
+      "url": "https://www.coreweave.com/pricing",
+      "variants": {
+        "H200 (CoreWeave)": {
+          "gpu_model": "H200",
+          "gpu_memory": "141GB",
+          "price_per_hour": 6.5,
+          "currency": "USD",
+          "availability": "on-demand"
+        }
+      }
+    }
+  },
+  "notes": {
+    "gpu_model": "NVIDIA H200",
+    "gpu_memory": "141GB HBM3e",
+    "pricing_type": "On-Demand",
+    "source": "https://www.coreweave.com/pricing"
+  }
+}

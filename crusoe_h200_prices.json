@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-01-02 16:57:10",
+  "provider": "Crusoe",
+  "providers": {
+    "Crusoe": {
+      "name": "Crusoe",
+      "url": "https://www.crusoe.ai/cloud/pricing",
+      "variants": {
+        "H200 (Crusoe)": {
+          "gpu_model": "H200",
+          "gpu_memory": "141GB",
+          "price_per_hour": 4.29,
+          "currency": "USD",
+          "availability": "on-demand"
+        }
+      }
+    }
+  }
+}

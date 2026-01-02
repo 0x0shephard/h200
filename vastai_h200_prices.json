@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-01-02 15:37:39",
+  "provider": "VastAI",
+  "providers": {
+    "VastAI": {
+      "name": "Vast.ai",
+      "url": "https://vast.ai/pricing",
+      "variants": {
+        "H200 (Vast.ai)": {
+          "gpu_model": "H200",
+          "gpu_memory": "141GB",
+          "price_per_hour": 2.19,
+          "currency": "USD",
+          "availability": "spot/on-demand"
+        }
+      }
+    }
+  },
+  "notes": {
+    "gpu_model": "NVIDIA H200",
+    "gpu_memory": "141GB HBM3e",
+    "pricing_type": "Spot/On-Demand (Dynamic)",
+    "source": "https://vast.ai/pricing"
+  }
+}

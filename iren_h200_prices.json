@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-01-02 16:59:04",
+  "provider": "Iren",
+  "providers": {
+    "Iren": {
+      "name": "Iren",
+      "url": "https://iren.com/solutions/gpu-cloud/ai-cloud",
+      "variants": {
+        "H200 (Iren)": {
+          "gpu_model": "H200",
+          "gpu_memory": "141GB",
+          "price_per_hour": 9.7,
+          "currency": "USD",
+          "availability": "on-demand"
+        }
+      }
+    }
+  }
+}

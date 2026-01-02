@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-01-02 16:01:13",
+  "provider": "Nebius",
+  "providers": {
+    "Nebius": {
+      "name": "Nebius",
+      "url": "https://nebius.com/prices",
+      "variants": {
+        "H200 (Nebius)": {
+          "gpu_model": "H200",
+          "gpu_memory": "141GB",
+          "price_per_hour": 2.3,
+          "currency": "USD",
+          "availability": "on-demand"
+        }
+      }
+    }
+  },
+  "notes": {
+    "gpu_model": "NVIDIA H200",
+    "gpu_memory": "141GB HBM3e",
+    "pricing_type": "On-Demand",
+    "source": "https://nebius.com/prices"
+  }
+}
