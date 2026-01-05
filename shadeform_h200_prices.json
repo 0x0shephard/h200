@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-01-05 22:06:45",
+  "provider": "Shadeform",
+  "providers": {
+    "Shadeform": {
+      "name": "Shadeform",
+      "url": "https://www.shadeform.ai/",
+      "variants": {
+        "H200x8 (Shadeform)": {
+          "gpu_model": "H200",
+          "gpu_memory": "141GB",
+          "price_per_hour": 2.25,
+          "currency": "USD",
+          "availability": "on-demand"
+        }
+      }
+    }
+  },
+  "notes": {
+    "instance_type": "H200x8 Bare Metal",
+    "gpu_model": "NVIDIA H200",
+    "gpu_memory": "141GB HBM3e",
+    "gpu_count_per_instance": 8,
+    "pricing_type": "On-Demand",
+    "pricing_unit": "per GPU per hour",
+    "source": "https://www.shadeform.ai/"
+  }
+}

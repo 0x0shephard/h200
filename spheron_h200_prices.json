@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-01-05 21:23:27",
+  "provider": "Spheron",
+  "providers": {
+    "Spheron": {
+      "name": "Spheron Network",
+      "url": "https://www.spheron.network/",
+      "variants": {
+        "H200 141GB (Spheron)": {
+          "gpu_model": "H200",
+          "gpu_memory": "141GB",
+          "price_per_hour": 1.88,
+          "currency": "USD",
+          "availability": "on-demand"
+        }
+      }
+    }
+  },
+  "notes": {
+    "instance_type": "Decentralized Compute",
+    "gpu_model": "NVIDIA H200",
+    "gpu_memory": "141GB",
+    "ram": "200GB",
+    "vcpus": 16,
+    "storage": "465GB",
+    "gpu_count_per_instance": 1,
+    "pricing_type": "On-Demand",
+    "source": "https://www.spheron.network/"
+  }
+}

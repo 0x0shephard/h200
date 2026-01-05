@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-01-05 20:59:24",
+  "provider": "LeaderGPU",
+  "providers": {
+    "LeaderGPU": {
+      "name": "LeaderGPU",
+      "url": "https://www.leadergpu.com/",
+      "variants": {
+        "H200 141GB (LeaderGPU)": {
+          "gpu_model": "H200",
+          "gpu_memory": "141GB",
+          "price_per_hour": 10.4,
+          "currency": "USD",
+          "availability": "dedicated"
+        }
+      }
+    }
+  },
+  "notes": {
+    "instance_type": "Dedicated Server",
+    "gpu_model": "NVIDIA H200",
+    "gpu_memory": "141GB HBM3e",
+    "gpu_count_per_instance": 1,
+    "pricing_type": "Dedicated (Daily/Monthly)",
+    "original_price_eur_daily": 213.35,
+    "exchange_rate_eur_to_usd": 1.17,
+    "location": "The Netherlands",
+    "source": "https://www.leadergpu.com/"
+  }
+}

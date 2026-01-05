@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-01-05 21:51:17",
+  "provider": "Siam.ai",
+  "providers": {
+    "Siam.ai": {
+      "name": "Siam.ai",
+      "url": "https://siam.ai/nvidia-hseries/",
+      "variants": {
+        "H200 (Siam.ai)": {
+          "gpu_model": "H200",
+          "gpu_memory": "141GB",
+          "price_per_hour": 2.99,
+          "currency": "USD",
+          "availability": "on-demand"
+        }
+      }
+    }
+  },
+  "notes": {
+    "instance_type": "On-Demand GPU",
+    "gpu_model": "NVIDIA H200",
+    "gpu_memory": "141GB HBM3e",
+    "gpu_count_per_instance": 1,
+    "pricing_type": "On-Demand",
+    "source": "https://siam.ai/nvidia-hseries/"
+  }
+}

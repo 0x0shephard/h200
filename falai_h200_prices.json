@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-01-05 20:32:21",
+  "provider": "Fal.ai",
+  "providers": {
+    "Fal.ai": {
+      "name": "Fal.ai",
+      "url": "https://fal.ai/pricing",
+      "variants": {
+        "H200 141GB (Fal.ai)": {
+          "gpu_model": "H200",
+          "gpu_memory": "141GB",
+          "price_per_hour": 2.1,
+          "currency": "USD",
+          "availability": "serverless"
+        }
+      }
+    }
+  },
+  "notes": {
+    "instance_type": "Serverless GPU",
+    "gpu_model": "NVIDIA H200",
+    "gpu_memory": "141GB HBM3e",
+    "gpu_count_per_instance": 1,
+    "pricing_type": "Serverless (Pay-per-use)",
+    "source": "https://fal.ai/pricing"
+  }
+}

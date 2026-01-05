@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-01-05 22:24:26",
+  "provider": "Hyperbolic",
+  "providers": {
+    "Hyperbolic": {
+      "name": "Hyperbolic AI",
+      "url": "https://www.hyperbolic.ai/marketplace",
+      "variants": {
+        "H200 (Hyperbolic)": {
+          "gpu_model": "H200",
+          "gpu_memory": "141GB",
+          "price_per_hour": 1.5,
+          "currency": "USD",
+          "availability": "on-demand"
+        }
+      }
+    }
+  },
+  "notes": {
+    "instance_type": "On-Demand GPU",
+    "gpu_model": "NVIDIA H200",
+    "gpu_memory": "141GB HBM3e",
+    "gpu_count_per_instance": 1,
+    "pricing_type": "On-Demand",
+    "source": "https://www.hyperbolic.ai/marketplace"
+  }
+}

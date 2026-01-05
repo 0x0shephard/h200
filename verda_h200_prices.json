@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-01-05 21:08:16",
+  "provider": "Verda",
+  "providers": {
+    "Verda": {
+      "name": "Verda",
+      "url": "https://verda.com/h200-sxm5",
+      "variants": {
+        "H200 SXM5 (Verda)": {
+          "gpu_model": "H200",
+          "gpu_memory": "141GB",
+          "price_per_hour": 2.99,
+          "currency": "USD",
+          "availability": "on-demand"
+        }
+      }
+    }
+  },
+  "notes": {
+    "instance_type": "H200 SXM5",
+    "gpu_model": "NVIDIA H200 SXM5",
+    "gpu_memory": "141GB HBM3e",
+    "gpu_count_per_instance": 1,
+    "pricing_type": "On-Demand",
+    "on_demand_price": 2.99,
+    "spot_price": 2.99,
+    "location": "Europe",
+    "source": "https://verda.com/h200-sxm5"
+  }
+}
