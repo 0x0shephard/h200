@@ -1,0 +1,95 @@
+name: H200 GPU Pricing Pipeline
+
+on:
+  # Run every 12 hours (at 00:00 and 12:00 UTC)
+  schedule:
+    - cron: '0 */12 * * *'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+  # Optional: Run on push to main/master branch
+  # push:
+  #   branches:
+  #     - main
+  #     - master
+
+jobs:
+  scrape-and-index:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 python-dotenv supabase
+          # Optional: Install selenium for JavaScript rendering
+          # pip install selenium
+
+      - name: Run all H200 scrapers
+        run: |
+          echo "=========================================="
+          echo "STEP 1: Running all H200 scrapers"
+          echo "=========================================="
+          python3 run_all_h200_scrapers.py
+        timeout-minutes: 15
+
+      - name: Calculate H200 weighted index
+        run: |
+          echo "=========================================="
+          echo "STEP 2: Calculating H200 weighted index"
+          echo "=========================================="
+          python3 calculate_h200_index.py
+        timeout-minutes: 5
+
+      - name: Push to Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          echo "=========================================="
+          echo "STEP 3: Pushing to Supabase"
+          echo "=========================================="
+          python3 push_to_supabase.py
+        timeout-minutes: 5
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: h200-pricing-data-${{ github.run_number }}
+          path: |
+            *_h200_prices.json
+            h200_combined_prices.json
+            h200_weighted_index.json
+          retention-days: 30
+
+      - name: Pipeline Summary
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "PIPELINE EXECUTION SUMMARY"
+          echo "=========================================="
+          if [ -f "h200_combined_prices.json" ]; then
+            echo "✅ Combined prices file generated"
+            jq -r '.price_summary[] | "\(.provider): $\(.price)/hr"' h200_combined_prices.json | head -10
+          else
+            echo "❌ Combined prices file not found"
+          fi
+
+          if [ -f "h200_weighted_index.json" ]; then
+            echo ""
+            echo "✅ Weighted index file generated"
+            echo "Final Index Price: $(jq -r '.final_index_price' h200_weighted_index.json)/hr"
+          else
+            echo "❌ Weighted index file not found"
+          fi

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-01-05 21:23:27",
+  "timestamp": "2026-01-07 13:32:50",
   "provider": "Spheron",
   "providers": {
     "Spheron": {
@@ -9,7 +9,7 @@
         "H200 141GB (Spheron)": {
           "gpu_model": "H200",
           "gpu_memory": "141GB",
-          "price_per_hour": 1.88,
+          "price_per_hour": 1.86,
           "currency": "USD",
           "availability": "on-demand"
         }

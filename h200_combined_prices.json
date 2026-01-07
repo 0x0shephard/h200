@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-01-06 18:10:13",
+  "timestamp": "2026-01-07 13:33:28",
   "total_providers": 33,
   "providers": {
     "AceCloud": {
       "source_file": "acecloud_h200_prices.json",
       "price_per_hour": 3.35,
       "data": {
-        "timestamp": "2026-01-05 22:36:21",
+        "timestamp": "2026-01-07 13:26:49",
         "provider": "AceCloud",
         "providers": {
           "AceCloud": {
@@ -40,7 +40,7 @@
       "source_file": "aime_h200_prices.json",
       "price_per_hour": 6.26,
       "data": {
-        "timestamp": "2026-01-06 17:23:16",
+        "timestamp": "2026-01-07 13:26:55",
         "provider": "AIME",
         "providers": {
           "AIME": {
@@ -77,7 +77,7 @@
       "source_file": "akash_h200_prices.json",
       "price_per_hour": 2.9,
       "data": {
-        "timestamp": "2026-01-06 17:48:24",
+        "timestamp": "2026-01-07 13:27:35",
         "provider": "Akash",
         "providers": {
           "Akash": {
@@ -106,8 +106,8 @@
             "maximum": 2.9
           },
           "availability": {
-            "available": 538,
-            "total": 80
+            "available": 537,
+            "total": 72
           },
           "source": "https://akash.network/pricing/gpus/"
         }
@@ -117,7 +117,7 @@
       "source_file": "aws_h200_prices.json",
       "price_per_hour": 7.91,
       "data": {
-        "timestamp": "2026-01-01 14:50:14",
+        "timestamp": "2026-01-07 13:27:48",
         "provider": "AWS",
         "providers": {
           "AWS": {
@@ -148,7 +148,7 @@
       "source_file": "azure_h200_prices.json",
       "price_per_hour": 12.57,
       "data": {
-        "timestamp": "2026-01-01 14:53:07",
+        "timestamp": "2026-01-07 13:27:50",
         "provider": "Azure",
         "providers": {
           "Azure": {
@@ -179,7 +179,7 @@
       "source_file": "civo_h200_prices.json",
       "price_per_hour": 2.99,
       "data": {
-        "timestamp": "2026-01-06 17:55:59",
+        "timestamp": "2026-01-07 13:27:52",
         "provider": "Civo",
         "providers": {
           "Civo": {
@@ -220,7 +220,7 @@
       "source_file": "computethishub_h200_prices.json",
       "price_per_hour": 3.5,
       "data": {
-        "timestamp": "2026-01-06 17:15:15",
+        "timestamp": "2026-01-07 13:27:53",
         "provider": "ComputeThisHub",
         "providers": {
           "ComputeThisHub": {
@@ -253,7 +253,7 @@
       "source_file": "coreweave_h200_prices.json",
       "price_per_hour": 6.5,
       "data": {
-        "timestamp": "2026-01-02 14:25:27",
+        "timestamp": "2026-01-07 13:27:56",
         "provider": "CoreWeave",
         "providers": {
           "CoreWeave": {
@@ -282,7 +282,7 @@
       "source_file": "crusoe_h200_prices.json",
       "price_per_hour": 4.29,
       "data": {
-        "timestamp": "2026-01-02 16:57:10",
+        "timestamp": "2026-01-07 13:27:57",
         "provider": "Crusoe",
         "providers": {
           "Crusoe": {
@@ -305,7 +305,7 @@
       "source_file": "falai_h200_prices.json",
       "price_per_hour": 2.1,
       "data": {
-        "timestamp": "2026-01-05 20:32:21",
+        "timestamp": "2026-01-07 13:28:07",
         "provider": "Fal.ai",
         "providers": {
           "Fal.ai": {
@@ -336,7 +336,7 @@
       "source_file": "fluidstack_h200_prices.json",
       "price_per_hour": 2.3,
       "data": {
-        "timestamp": "2026-01-02 16:00:57",
+        "timestamp": "2026-01-07 13:28:17",
         "provider": "FluidStack",
         "providers": {
           "FluidStack": {
@@ -365,7 +365,7 @@
       "source_file": "gcp_h200_prices.json",
       "price_per_hour": 11.07,
       "data": {
-        "timestamp": "2026-01-01 14:56:21",
+        "timestamp": "2026-01-07 13:28:57",
         "provider": "GCP",
         "providers": {
           "GCP": {
@@ -396,7 +396,7 @@
       "source_file": "gmicloud_h200_prices.json",
       "price_per_hour": 2.5,
       "data": {
-        "timestamp": "2026-01-02 16:54:31",
+        "timestamp": "2026-01-07 13:29:08",
         "provider": "GMICloud",
         "providers": {
           "GMICloud": {
@@ -425,7 +425,7 @@
       "source_file": "hydrahost_h200_prices.json",
       "price_per_hour": 5.0,
       "data": {
-        "timestamp": "2026-01-02 16:57:12",
+        "timestamp": "2026-01-07 13:29:11",
         "provider": "HydraHost",
         "providers": {
           "HydraHost": {
@@ -479,7 +479,7 @@
       "source_file": "hyperstack_h200_prices.json",
       "price_per_hour": 3.5,
       "data": {
-        "timestamp": "2026-01-02 14:26:59",
+        "timestamp": "2026-01-07 13:29:59",
         "provider": "HyperStack",
         "providers": {
           "HyperStack": {
@@ -508,7 +508,7 @@
       "source_file": "ionstream_h200_prices.json",
       "price_per_hour": 2.06,
       "data": {
-        "timestamp": "2026-01-06 17:03:03",
+        "timestamp": "2026-01-07 13:30:08",
         "provider": "IonStream",
         "providers": {
           "IonStream": {
@@ -541,7 +541,7 @@
       "source_file": "iren_h200_prices.json",
       "price_per_hour": 9.7,
       "data": {
-        "timestamp": "2026-01-02 16:59:04",
+        "timestamp": "2026-01-07 13:30:11",
         "provider": "Iren",
         "providers": {
           "Iren": {
@@ -564,7 +564,7 @@
       "source_file": "jarvislabs_h200_prices.json",
       "price_per_hour": 3.8,
       "data": {
-        "timestamp": "2026-01-02 16:39:15",
+        "timestamp": "2026-01-07 13:30:21",
         "provider": "JarvisLabs",
         "providers": {
           "JarvisLabs": {
@@ -593,7 +593,7 @@
       "source_file": "leadergpu_h200_prices.json",
       "price_per_hour": 10.4,
       "data": {
-        "timestamp": "2026-01-05 20:59:24",
+        "timestamp": "2026-01-07 13:30:26",
         "provider": "LeaderGPU",
         "providers": {
           "LeaderGPU": {
@@ -627,7 +627,7 @@
       "source_file": "nebius_h200_prices.json",
       "price_per_hour": 2.3,
       "data": {
-        "timestamp": "2026-01-02 16:01:13",
+        "timestamp": "2026-01-07 13:30:41",
         "provider": "Nebius",
         "providers": {
           "Nebius": {
@@ -656,7 +656,7 @@
       "source_file": "oracle_h200_prices.json",
       "price_per_hour": 10.0,
       "data": {
-        "timestamp": "2026-01-01 15:06:23",
+        "timestamp": "2026-01-07 13:30:52",
         "provider": "Oracle",
         "providers": {
           "Oracle": {
@@ -687,7 +687,7 @@
       "source_file": "ori_h200_prices.json",
       "price_per_hour": 2.9,
       "data": {
-        "timestamp": "2026-01-02 16:55:01",
+        "timestamp": "2026-01-07 13:31:02",
         "provider": "Ori",
         "providers": {
           "Ori": {
@@ -716,7 +716,7 @@
       "source_file": "primeintellect_h200_prices.json",
       "price_per_hour": 1.55,
       "data": {
-        "timestamp": "2026-01-06 17:48:57",
+        "timestamp": "2026-01-07 13:31:29",
         "provider": "PrimeIntellect",
         "providers": {
           "PrimeIntellect": {
@@ -749,7 +749,7 @@
       "source_file": "runpod_h200_prices.json",
       "price_per_hour": 3.59,
       "data": {
-        "timestamp": "2026-01-02 14:27:04",
+        "timestamp": "2026-01-07 13:31:54",
         "provider": "RunPod",
         "providers": {
           "RunPod": {
@@ -778,7 +778,7 @@
       "source_file": "sesterce_h200_prices.json",
       "price_per_hour": 2.25,
       "data": {
-        "timestamp": "2026-01-02 14:26:54",
+        "timestamp": "2026-01-07 13:32:20",
         "provider": "Sesterce",
         "providers": {
           "Sesterce": {
@@ -807,7 +807,7 @@
       "source_file": "shadeform_h200_prices.json",
       "price_per_hour": 2.25,
       "data": {
-        "timestamp": "2026-01-05 22:06:45",
+        "timestamp": "2026-01-07 13:32:30",
         "provider": "Shadeform",
         "providers": {
           "Shadeform": {
@@ -839,7 +839,7 @@
       "source_file": "siamai_h200_prices.json",
       "price_per_hour": 2.99,
       "data": {
-        "timestamp": "2026-01-05 21:51:17",
+        "timestamp": "2026-01-07 13:32:32",
         "provider": "Siam.ai",
         "providers": {
           "Siam.ai": {
@@ -868,9 +868,9 @@
     },
     "Spheron": {
       "source_file": "spheron_h200_prices.json",
-      "price_per_hour": 1.88,
+      "price_per_hour": 1.86,
       "data": {
-        "timestamp": "2026-01-05 21:23:27",
+        "timestamp": "2026-01-07 13:32:50",
         "provider": "Spheron",
         "providers": {
           "Spheron": {
@@ -880,7 +880,7 @@
               "H200 141GB (Spheron)": {
                 "gpu_model": "H200",
                 "gpu_memory": "141GB",
-                "price_per_hour": 1.88,
+                "price_per_hour": 1.86,
                 "currency": "USD",
                 "availability": "on-demand"
               }
@@ -904,7 +904,7 @@
       "source_file": "valdi_h200_prices.json",
       "price_per_hour": 21.95,
       "data": {
-        "timestamp": "2026-01-05 22:15:14",
+        "timestamp": "2026-01-07 13:33:07",
         "provider": "Valdi",
         "providers": {
           "Valdi": {
@@ -953,7 +953,7 @@
       "source_file": "vastai_h200_prices.json",
       "price_per_hour": 2.19,
       "data": {
-        "timestamp": "2026-01-02 15:37:39",
+        "timestamp": "2026-01-07 13:33:23",
         "provider": "VastAI",
         "providers": {
           "VastAI": {
@@ -982,7 +982,7 @@
       "source_file": "verda_h200_prices.json",
       "price_per_hour": 2.99,
       "data": {
-        "timestamp": "2026-01-05 21:08:16",
+        "timestamp": "2026-01-07 13:33:25",
         "provider": "Verda",
         "providers": {
           "Verda": {
@@ -1016,7 +1016,7 @@
       "source_file": "vultr_h200_prices.json",
       "price_per_hour": 1.99,
       "data": {
-        "timestamp": "2026-01-02 15:38:40",
+        "timestamp": "2026-01-07 13:33:28",
         "provider": "Vultr",
         "providers": {
           "Vultr": {
@@ -1053,7 +1053,7 @@
     },
     {
       "provider": "Spheron",
-      "price": 1.88
+      "price": 1.86
     },
     {
       "provider": "Vultr",
