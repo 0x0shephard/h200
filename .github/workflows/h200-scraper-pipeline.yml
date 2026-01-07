@@ -60,6 +60,19 @@ jobs:
           python3 push_to_supabase.py
         timeout-minutes: 5
 
+      - name: Push to Oracle Contract
+        env:
+          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+          ORACLE_UPDATER_PRIVATE_KEY: ${{ secrets.ORACLE_UPDATER_PRIVATE_KEY }}
+          MULTI_ASSET_ORACLE_ADDRESS: ${{ secrets.MULTI_ASSET_ORACLE_ADDRESS }}
+        run: |
+          echo "=========================================="
+          echo "STEP 4: Pushing to Oracle Contract"
+          echo "=========================================="
+          PRICE=$(jq -r '.final_index_price' h200_weighted_index.json)
+          python3 push_to_contract.py $PRICE
+        timeout-minutes: 5
+
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -69,6 +82,7 @@ jobs:
             *_h200_prices.json
             h200_combined_prices.json
             h200_weighted_index.json
+            h200_oracle_update_log.json
           retention-days: 30
 
       - name: Pipeline Summary
@@ -87,7 +101,19 @@ jobs:
           if [ -f "h200_weighted_index.json" ]; then
             echo ""
             echo "✅ Weighted index file generated"
-            echo "Final Index Price: $(jq -r '.final_index_price' h200_weighted_index.json)/hr"
+            FINAL_PRICE=$(jq -r '.final_index_price' h200_weighted_index.json)
+            echo "Final Index Price: \$$FINAL_PRICE/hr"
           else
             echo "❌ Weighted index file not found"
+          fi
+
+          if [ -f "h200_oracle_update_log.json" ]; then
+            echo ""
+            echo "✅ Oracle contract updated"
+            LATEST_TX=$(jq -r '.[-1].tx_hash' h200_oracle_update_log.json)
+            echo "Latest transaction: $LATEST_TX"
+            echo "Etherscan: https://sepolia.etherscan.io/tx/$LATEST_TX"
+          else
+            echo ""
+            echo "⚠️  Oracle contract update log not found"
           fi
