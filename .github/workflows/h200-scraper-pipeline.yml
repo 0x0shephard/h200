@@ -73,6 +73,19 @@ jobs:
           python3 push_to_contract.py $PRICE
         timeout-minutes: 5
 
+      - name: Push Provider-Specific Prices to Oracle
+        env:
+          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+          ORACLE_UPDATER_PRIVATE_KEY: ${{ secrets.ORACLE_UPDATER_PRIVATE_KEY }}
+          MULTI_ASSET_ORACLE_ADDRESS: ${{ secrets.MULTI_ASSET_ORACLE_ADDRESS }}
+        run: |
+          echo "=========================================="
+          echo "STEP 5: Pushing Provider-Specific Prices"
+          echo "=========================================="
+          echo "Pushing 5 provider prices (AWS, Azure, GCP, Oracle, CoreWeave)"
+          python3 Push_h200_provider_specific_markets.py --from-index
+        timeout-minutes: 5
+
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -83,6 +96,7 @@ jobs:
             h200_combined_prices.json
             h200_weighted_index.json
             h200_oracle_update_log.json
+            h200_price_update_log.json
           retention-days: 30
 
       - name: Pipeline Summary
@@ -109,11 +123,27 @@ jobs:
 
           if [ -f "h200_oracle_update_log.json" ]; then
             echo ""
-            echo "✅ Oracle contract updated"
+            echo "✅ Oracle contract updated (index price)"
             LATEST_TX=$(jq -r '.[-1].tx_hash' h200_oracle_update_log.json)
             echo "Latest transaction: $LATEST_TX"
             echo "Etherscan: https://sepolia.etherscan.io/tx/$LATEST_TX"
           else
             echo ""
             echo "⚠️  Oracle contract update log not found"
+          fi
+
+          if [ -f "h200_price_update_log.json" ]; then
+            echo ""
+            echo "✅ Provider-specific prices updated (5 providers)"
+            LATEST_TX=$(jq -r '.[-1].tx_hash' h200_price_update_log.json)
+            PROVIDER_COUNT=$(jq -r '.[-1].prices | keys | length' h200_price_update_log.json)
+            echo "Providers updated: $PROVIDER_COUNT"
+            echo "Latest transaction: $LATEST_TX"
+            echo "Etherscan: https://sepolia.etherscan.io/tx/$LATEST_TX"
+            echo ""
+            echo "Provider prices pushed:"
+            jq -r '.[-1].prices | to_entries[] | "  \(.key): $\(.value.price_usd)/hr"' h200_price_update_log.json
+          else
+            echo ""
+            echo "⚠️  Provider-specific price update log not found"
           fi
