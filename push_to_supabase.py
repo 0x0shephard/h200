@@ -111,7 +111,7 @@ def validate_price(supabase: 'Client', new_price: float, tolerance: float = 0.25
 
 
 def push_to_supabase(index_data: Dict) -> bool:
-    """Push H200 index data to Supabase with price validation"""
+    """Push H200 index data and hyperscaler prices to Supabase with price validation"""
     
     # Get Supabase credentials from environment
     supabase_url = os.getenv('SUPABASE_URL')
@@ -168,12 +168,17 @@ def push_to_supabase(index_data: Dict) -> bool:
         print(f"   Neocloud Component: ${insert_data['neocloud_component']:.4f}")
         print(f"   Timestamp: {insert_data['timestamp']}")
         
-        # Insert into Supabase
+        # Insert main index into Supabase
         response = supabase.table('h200_index_prices').insert(insert_data).execute()
         
         if response.data:
-            print(f"\n[SUCCESS] Successfully pushed to Supabase!")
-            print(f"   Record ID: {response.data[0]['id']}")
+            index_id = response.data[0]['id']
+            print(f"\n[SUCCESS] Successfully pushed index to Supabase!")
+            print(f"   Record ID: {index_id}")
+            
+            # Push individual hyperscaler prices
+            push_hyperscaler_prices(supabase, index_data, index_id)
+            
             return True
         else:
             print(f"\n[ERROR] No data returned from Supabase")
@@ -181,6 +186,57 @@ def push_to_supabase(index_data: Dict) -> bool:
             
     except Exception as e:
         print(f"\n[ERROR] Error pushing to Supabase: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def push_hyperscaler_prices(supabase: 'Client', index_data: Dict, index_id: int) -> bool:
+    """Push individual H200 hyperscaler prices to h200_provider_prices table"""
+    
+    try:
+        timestamp = index_data.get("timestamp")
+        hyperscaler_details = index_data.get("hyperscaler_details", [])
+        
+        provider_records = []
+        
+        print(f"\n[PUSH] Pushing H200 hyperscaler prices...")
+        print(f"\n   📊 Hyperscalers:")
+        
+        for detail in hyperscaler_details:
+            provider_name = detail.get("provider")
+            
+            record = {
+                "index_id": index_id,
+                "timestamp": timestamp,
+                "provider_name": provider_name,
+                "provider_type": "hyperscaler",
+                "original_price": round(detail.get("original_price", 0), 4),
+                "effective_price": round(detail.get("effective_price", 0), 4),
+                "discount_rate": round(detail.get("discount_rate", 0), 4),
+                "relative_weight": round(detail.get("relative_weight", 0), 4),
+                "absolute_weight": round(detail.get("absolute_weight", 0), 4),
+                "weighted_contribution": round(detail.get("weighted_contribution", 0), 4),
+            }
+            provider_records.append(record)
+            print(f"      • {provider_name}: ${record['effective_price']:.2f}/hr (discounted from ${record['original_price']:.2f})")
+        
+        # Insert hyperscaler records
+        if provider_records:
+            response = supabase.table('h200_provider_prices').insert(provider_records).execute()
+            
+            if response.data:
+                print(f"\n   [OK] Pushed {len(response.data)} hyperscaler prices to Supabase!")
+                return True
+            else:
+                print(f"\n   [WARNING] No data returned for provider prices")
+                return False
+        else:
+            print(f"\n   [WARNING] No provider records to push")
+            return False
+            
+    except Exception as e:
+        print(f"\n   [WARNING] Error pushing provider prices: {e}")
         import traceback
         traceback.print_exc()
         return False
