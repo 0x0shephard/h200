@@ -3,7 +3,8 @@
 H200 GPU Weighted Index Calculator
 
 Calculates a weighted H200 GPU index price based on:
-1. Hyperscalers (AWS, Azure, GCP, CoreWeave, Oracle) - 65% weight with 70-90% discounts
+1. Hyperscalers (AWS, Azure, GCP, CoreWeave, Oracle) - 65% weight with static discounts
+   - AWS: 33% (Savings Plans), Azure: 30% (EA), Google: 25% (CUDs), Oracle: 25% (volume), CoreWeave: 50% (take-or-pay)
    - Discount blend: 80% at discounted rate + 20% at full price
    - Individual weights based on annual revenue
 2. Neoclouds (all other providers) - 35% weight at full price
@@ -21,7 +22,6 @@ Neoclouds revenue estimated from public data and market presence.
 """
 
 import json
-import random
 import re
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -46,9 +46,20 @@ class H200IndexCalculator:
         # Define hyperscalers (5 major cloud providers)
         self.hyperscalers = ["AWS", "Azure", "Google Cloud", "CoreWeave", "Oracle"]
         
-        # Hyperscaler discount range (70-90%)
-        self.discount_min = 0.70
-        self.discount_max = 0.90
+        # Static hyperscaler discounts based on enterprise pricing research
+        # These represent typical discount rates:
+        # - AWS: 21-45% off via Savings Plans → using 33%
+        # - Azure: 20-40% off via Enterprise Agreements → using 30%
+        # - Google Cloud: ~25% off via CUDs
+        # - Oracle: 20-30% off via commitments/volume → using 25%
+        # - CoreWeave: 40-60% off via multi-year take-or-pay → using 50%
+        self.hyperscaler_discounts = {
+            "AWS": 0.33,           # 33% discount (Savings Plans)
+            "Azure": 0.30,         # 30% discount (Enterprise Agreements)
+            "Google Cloud": 0.25,  # 25% discount (Committed Use Discounts)
+            "Oracle": 0.25,        # 25% discount (volume/commitment deals)
+            "CoreWeave": 0.50,     # 50% discount (multi-year take-or-pay)
+        }
         
         # Discount blend: 80% discounted, 20% full price
         self.discounted_weight = 0.80
@@ -228,7 +239,7 @@ class H200IndexCalculator:
     
     def apply_hyperscaler_discounts(self, prices: Dict[str, float]) -> Dict[str, Dict]:
         """
-        Apply random discounts (70-90%) to hyperscalers.
+        Apply static discounts to hyperscalers based on enterprise pricing research.
         
         Discount blend formula:
         effective_price = (discounted_price * 0.80) + (original_price * 0.20)
@@ -238,13 +249,14 @@ class H200IndexCalculator:
         discounted_data = {}
         
         print("\n" + "=" * 80)
-        print("💰 HYPERSCALER DISCOUNT APPLICATION (70-90% discount range)")
+        print("💰 HYPERSCALER DISCOUNT APPLICATION (Static enterprise discounts)")
         print("=" * 80)
+        print("Static discounts: AWS 33%, Azure 30%, Google 25%, Oracle 25%, CoreWeave 50%")
         print("Blend: 80% at discounted rate + 20% at full price\n")
         
         for provider, original_price in prices.items():
-            # Generate random discount between 70-90%
-            discount_rate = random.uniform(self.discount_min, self.discount_max)
+            # Get static discount for this provider
+            discount_rate = self.hyperscaler_discounts.get(provider, 0.30)  # Default 30% if not found
             
             # Calculate discounted price
             discounted_price = original_price * (1 - discount_rate)
@@ -263,7 +275,7 @@ class H200IndexCalculator:
             
             print(f"🏢 {provider}")
             print(f"   Original Price:     ${original_price:.2f}/hr")
-            print(f"   Discount Applied:   {discount_rate*100:.1f}%")
+            print(f"   Discount Applied:   {discount_rate*100:.0f}%")
             print(f"   Discounted Price:   ${discounted_price:.2f}/hr")
             print(f"   Blended Price:      ${effective_price:.2f}/hr")
             print(f"   (80% × ${discounted_price:.2f} + 20% × ${original_price:.2f})")
@@ -386,7 +398,7 @@ class H200IndexCalculator:
                 "hyperscaler_total": self.hyperscaler_total_weight,
                 "neocloud_total": self.neocloud_total_weight,
                 "hyperscaler_individual": self.hyperscaler_weights,
-                "discount_range": {"min": self.discount_min, "max": self.discount_max},
+                "hyperscaler_discounts": self.hyperscaler_discounts,
                 "discount_blend": {
                     "discounted_weight": self.discounted_weight,
                     "full_price_weight": self.full_price_weight
@@ -413,11 +425,9 @@ def main():
     print("Calculating weighted H200 index with:")
     print("  • Hyperscalers (65%): AWS, Azure, GCP, CoreWeave, Oracle")
     print("  • Neoclouds (35%): All other providers")
-    print("  • Hyperscaler discounts: 70-90% (blend: 80% discounted + 20% full)")
+    print("  • Static discounts: AWS 33%, Azure 30%, Google 25%, Oracle 25%, CoreWeave 50%")
+    print("  • Blend: 80% discounted + 20% full price")
     print("=" * 80)
-    
-    # Set random seed for reproducibility (optional)
-    # random.seed(42)
     
     # Initialize calculator
     calculator = H200IndexCalculator()
