@@ -61,8 +61,8 @@ class OracleH200Scraper:
                 continue
         
         if not h200_prices:
-            print("\n⚠️  All methods failed - using known pricing data")
-            h200_prices = self._get_known_pricing()
+            print("\n❌ All live methods failed - no fallback data (live data only mode)")
+            return {}
         
         # Normalize to per-GPU pricing
         normalized_prices = self._normalize_prices(h200_prices)

@@ -24,6 +24,8 @@ class GCPH200Scraper:
         self.base_url = "https://cloud.google.com/compute/gpus-pricing"
         self.machine_types_url = "https://cloud.google.com/compute/docs/gpus"
         self.pricing_api_url = "https://cloudbilling.googleapis.com/v1/services"
+        # Vantage.sh aggregates cloud pricing - A3 Ultra has H200 GPUs
+        self.vantage_url = "https://instances.vantage.sh/gcp/a3-ultragpu-8g"
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -39,8 +41,9 @@ class GCPH200Scraper:
         
         h200_prices = {}
         
-        # Try multiple methods in order
+        # Try multiple methods in order - Vantage first as most reliable
         methods = [
+            ("Vantage Instance Pricing", self._try_vantage_pricing),
             ("GCP Pricing Page Scraping", self._try_pricing_page),
             ("GCP Machine Types Page", self._try_machine_types_page),
             ("Selenium Scraper", self._try_selenium_scraper),
@@ -61,8 +64,8 @@ class GCPH200Scraper:
                 continue
         
         if not h200_prices:
-            print("\n⚠️  All methods failed - using known pricing data")
-            h200_prices = self._get_known_pricing()
+            print("\n❌ All live methods failed - no fallback data (live data only mode)")
+            return {}
         
         # Normalize to per-GPU pricing
         normalized_prices = self._normalize_prices(h200_prices)
@@ -89,6 +92,59 @@ class GCPH200Scraper:
                 continue
         return False
     
+    def _try_vantage_pricing(self) -> Dict[str, str]:
+        """Try to scrape pricing from Vantage.sh which aggregates GCP pricing"""
+        h200_prices = {}
+        
+        try:
+            print(f"    Trying: {self.vantage_url}")
+            response = requests.get(self.vantage_url, headers=self.headers, timeout=20)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.content, 'html.parser')
+                text_content = soup.get_text()
+                
+                print(f"      Content length: {len(text_content)}")
+                
+                # Look for pricing patterns on Vantage
+                # Vantage shows prices like "$86.27" or "86.27 USD" for instance pricing
+                price_patterns = [
+                    r'\$([0-9]+\.?[0-9]*)\s*(?:per\s+hour|/hr|/hour)',
+                    r'On.?Demand[:\s]+\$([0-9]+\.?[0-9]*)',
+                    r'hourly[:\s]+\$([0-9]+\.?[0-9]*)',
+                    r'\$([0-9]+\.[0-9]+)',  # Generic price pattern
+                ]
+                
+                for pattern in price_patterns:
+                    matches = re.findall(pattern, text_content, re.IGNORECASE)
+                    for match in matches:
+                        try:
+                            price = float(match)
+                            # Instance price should be in $60-150 range for a3-ultragpu-8g
+                            if 50 < price < 200:
+                                per_gpu_price = price / 8  # 8 GPUs per instance
+                                print(f"      ✓ Found instance price: ${price:.2f}/hr")
+                                print(f"        Per-GPU: ${per_gpu_price:.2f}/hr")
+                                h200_prices['A3-Ultra (Google Cloud)'] = f"${per_gpu_price:.2f}/hr"
+                                return h200_prices
+                            # Already per-GPU price
+                            elif 5 < price < 20:
+                                print(f"      ✓ Found per-GPU price: ${price:.2f}/hr")
+                                h200_prices['A3-Ultra (Google Cloud)'] = f"${price:.2f}/hr"
+                                return h200_prices
+                        except ValueError:
+                            continue
+                
+                print(f"      ⚠️  No H200 pricing found in expected range")
+                
+            else:
+                print(f"      Status {response.status_code}")
+                
+        except Exception as e:
+            print(f"      Error: {str(e)[:50]}...")
+        
+        return h200_prices
+    
     def _try_pricing_page(self) -> Dict[str, str]:
         """Scrape the GCP GPU pricing page for H200 prices"""
         h200_prices = {}
@@ -100,15 +156,20 @@ class GCPH200Scraper:
             if response.status_code == 200:
                 soup = BeautifulSoup(response.content, 'html.parser')
                 text_content = soup.get_text()
+                html_content = str(soup)
                 
                 print(f"      Content length: {len(text_content)}")
                 
-                # Check if page contains H200 or A3 Ultra data
-                if 'H200' not in text_content and 'a3-ultra' not in text_content.lower():
-                    print(f"      ⚠️  No H200/A3 Ultra content found")
-                    return h200_prices
+                # Check if page contains H200 or A3 Ultra or nvidia-h200 data
+                has_h200 = ('H200' in text_content or 'h200' in text_content.lower() or 
+                            'a3-ultra' in text_content.lower() or 'nvidia-h200' in html_content.lower() or
+                            'a3ultra' in text_content.lower())
                 
-                print(f"      ✓ Found H200/A3 Ultra content")
+                if not has_h200:
+                    print(f"      ⚠️  No H200/A3 Ultra content found in text")
+                    # Still try extraction - sometimes content is in HTML attributes
+                
+                print(f"      ✓ Attempting price extraction...")
                 
                 # Extract from pricing tables
                 found_prices = self._extract_from_tables(soup)
@@ -168,7 +229,7 @@ class GCPH200Scraper:
         return h200_prices
     
     def _extract_from_tables(self, soup: BeautifulSoup) -> Dict[str, str]:
-        """Extract H200 prices from HTML tables"""
+        """Extract H200 prices from HTML tables - handles 8-GPU instance pricing"""
         prices = {}
         
         tables = soup.find_all('table')
@@ -176,9 +237,14 @@ class GCPH200Scraper:
         
         for table in tables:
             table_text = table.get_text()
+            table_html = str(table)
             
-            # Only process tables with H200 or A3 Ultra mentions
-            if 'H200' not in table_text and 'a3-ultra' not in table_text.lower():
+            # Look for H200 or A3 Ultra mentions (case insensitive)
+            has_h200 = ('H200' in table_text or 'h200' in table_text.lower() or 
+                        'a3-ultra' in table_text.lower() or 'a3ultra' in table_text.lower() or
+                        'nvidia-h200' in table_html.lower())
+            
+            if not has_h200:
                 continue
             
             print(f"      📋 Processing table with H200/A3 Ultra data")
@@ -188,51 +254,78 @@ class GCPH200Scraper:
                 cells = row.find_all(['td', 'th'])
                 row_text = ' '.join([cell.get_text().strip() for cell in cells])
                 
-                if ('H200' in row_text or 'a3-ultra' in row_text.lower()) and '$' in row_text:
+                # Check for H200/A3/accelerator rows
+                has_h200_row = ('H200' in row_text or 'h200' in row_text.lower() or 
+                                'a3-ultra' in row_text.lower() or 'a3ultra' in row_text.lower() or
+                                'nvidia-h200' in row_text.lower() or 'accelerator' in row_text.lower())
+                
+                if has_h200_row and '$' in row_text:
                     print(f"         Row: {row_text[:150]}")
                     
-                    # Extract price
+                    # Extract all prices from the row
                     price_matches = re.findall(r'\$([0-9.]+)', row_text)
                     
                     for price_str in price_matches:
                         try:
-                            price = float(price_str)
-                            # Per-GPU hourly pricing should be $3-15 range
-                            if 2.0 < price < 20.0:
-                                variant_name = f"A3-Ultra (GCP)"
+                            instance_price = float(price_str)
+                            
+                            # GCP A3 Ultra VMs have 8 x H200 GPUs
+                            # Instance prices ~$60-150/hr → divide by 8 for per-GPU
+                            if 50 < instance_price < 200:
+                                per_gpu_price = instance_price / 8
+                                variant_name = "A3-Ultra (Google Cloud)"
                                 if variant_name not in prices:
-                                    prices[variant_name] = f"${price:.2f}/hr"
-                                    print(f"        Table ✓ {variant_name} = ${price:.2f}/hr")
+                                    prices[variant_name] = f"${per_gpu_price:.2f}/hr"
+                                    print(f"        Table ✓ {variant_name} = ${per_gpu_price:.2f}/hr (from ${instance_price:.2f}/instance ÷ 8 GPUs)")
+                            # Also accept already per-GPU prices
+                            elif 3 < instance_price < 20:
+                                variant_name = "A3-Ultra (Google Cloud)"
+                                if variant_name not in prices:
+                                    prices[variant_name] = f"${instance_price:.2f}/hr"
+                                    print(f"        Table ✓ {variant_name} = ${instance_price:.2f}/hr")
                         except ValueError:
                             continue
         
         return prices
     
     def _extract_from_text(self, text_content: str) -> Dict[str, str]:
-        """Extract H200 prices from text content using regex patterns"""
+        """Extract H200 prices from text content - handles 8-GPU instance pricing"""
         prices = {}
         
-        # Look for H200 or A3 Ultra pricing patterns
-        # GCP often shows: "H200 $3.7247" or "a3-ultragpu-8g $XX.XX"
+        # GCP pricing patterns for A3 Ultra VMs with H200
+        # Looking for patterns like "$86.27 / 1 hour" near H200/A3 mentions
         
-        patterns = [
-            r'H200[^\$]*\$([0-9.]+)',
-            r'a3-ultra[^\$]*\$([0-9.]+)',
-            r'NVIDIA\s+H200[^\$]*\$([0-9.]+)',
+        # Pattern to find price mentions
+        price_patterns = [
+            r'a3-ultra.*?\$([0-9.]+)',
+            r'a3ultra.*?\$([0-9.]+)',
+            r'nvidia-h200.*?\$([0-9.]+)',
+            r'H200.*?\$([0-9.]+)',
+            r'\$([0-9.]+).*?(?:per|/)?\s*(?:1\s+)?hour',
         ]
         
-        for pattern in patterns:
-            matches = re.findall(pattern, text_content, re.IGNORECASE)
+        for pattern in price_patterns:
+            matches = re.findall(pattern, text_content, re.IGNORECASE | re.DOTALL)
             
             for price_str in matches:
                 try:
-                    price = float(price_str)
-                    # Per-GPU pricing is typically $3-15 for H200
-                    if 2.0 < price < 20.0:
-                        variant_name = "A3-Ultra (GCP)"
-                        prices[variant_name] = f"${price:.2f}/hr"
-                        print(f"        Pattern ✓ {variant_name} = ${price:.2f}/hr")
-                        return prices  # Return on first valid match
+                    instance_price = float(price_str)
+                    
+                    # Check if this is an 8-GPU instance price (~$60-150/hr)
+                    if 50 < instance_price < 200:
+                        per_gpu_price = instance_price / 8
+                        variant_name = "A3-Ultra (Google Cloud)"
+                        if variant_name not in prices:
+                            prices[variant_name] = f"${per_gpu_price:.2f}/hr"
+                            print(f"        Pattern ✓ {variant_name} = ${per_gpu_price:.2f}/hr (from ${instance_price:.2f}/instance ÷ 8 GPUs)")
+                            return prices  # Found valid price, return immediately
+                    # Already per-GPU price
+                    elif 3 < instance_price < 20:
+                        variant_name = "A3-Ultra (Google Cloud)"
+                        if variant_name not in prices:
+                            prices[variant_name] = f"${instance_price:.2f}/hr"
+                            print(f"        Pattern ✓ {variant_name} = ${instance_price:.2f}/hr")
+                            return prices
                 except ValueError:
                     continue
         
