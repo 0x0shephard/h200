@@ -23,6 +23,15 @@ class AWSH200Scraper:
         self.name = "AWS"
         self.base_url = "https://aws.amazon.com/ec2/pricing/on-demand/"
         self.vantage_url = "https://instances.vantage.sh/aws/ec2/p5en.48xlarge"
+        # Multi-region URLs for volatility - P5en has H200 GPUs
+        self.vantage_regions = [
+            ("us-east-1", "https://instances.vantage.sh/aws/ec2/p5en.48xlarge?region=us-east-1"),
+            ("us-east-2", "https://instances.vantage.sh/aws/ec2/p5en.48xlarge?region=us-east-2"),
+            ("us-west-2", "https://instances.vantage.sh/aws/ec2/p5en.48xlarge?region=us-west-2"),
+            ("eu-west-1", "https://instances.vantage.sh/aws/ec2/p5en.48xlarge?region=eu-west-1"),
+            ("eu-central-1", "https://instances.vantage.sh/aws/ec2/p5en.48xlarge?region=eu-central-1"),
+            ("ap-northeast-1", "https://instances.vantage.sh/aws/ec2/p5en.48xlarge?region=ap-northeast-1"),
+        ]
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -32,14 +41,15 @@ class AWSH200Scraper:
         }
     
     def get_h200_prices(self) -> Dict[str, str]:
-        """Main method to extract H200 prices from AWS"""
-        print(f"🔍 Fetching {self.name} P5en (H200) pricing...")
+        """Main method to extract H200 prices from AWS - multi-region for volatility"""
+        print(f"🔍 Fetching {self.name} P5en (H200) pricing (multi-region)...")
         print("=" * 80)
         
         h200_prices = {}
         
-        # Try multiple methods in order
+        # Try multiple methods in order - multi-region first for volatility
         methods = [
+            ("Vantage Multi-Region Pricing", self._try_vantage_multi_region),
             ("AWS Pricing API", self._try_aws_pricing_api),
             ("Vantage Instance Pricing", self._try_vantage_pricing),
             ("EC2 Pricing Page Scraping", self._try_pricing_page),
@@ -88,6 +98,62 @@ class AWSH200Scraper:
             except:
                 continue
         return False
+    
+    def _try_vantage_multi_region(self) -> Dict[str, str]:
+        """Fetch H200 prices from multiple AWS regions via Vantage.sh for volatility"""
+        h200_prices = {}
+        
+        print(f"    Fetching prices from {len(self.vantage_regions)} AWS regions...")
+        
+        for region_code, url in self.vantage_regions:
+            try:
+                response = requests.get(url, headers=self.headers, timeout=15)
+                
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    text_content = soup.get_text()
+                    
+                    # Look for pricing patterns
+                    price_patterns = [
+                        r'\$([0-9]+\.?[0-9]*)\s*(?:per\s+hour|/hr|/hour)',
+                        r'On.?Demand[:\s]+\$([0-9]+\.?[0-9]*)',
+                        r'hourly[:\s]+\$([0-9]+\.?[0-9]*)',
+                        r'\$([0-9]+\.[0-9]+)',
+                    ]
+                    
+                    for pattern in price_patterns:
+                        matches = re.findall(pattern, text_content, re.IGNORECASE)
+                        for match in matches:
+                            try:
+                                price = float(match)
+                                # Instance price for 8 H200 GPUs ~$50-80/hr
+                                if 40 < price < 120:
+                                    per_gpu_price = price / 8
+                                    region_name = region_code.replace('-', ' ').title()
+                                    variant_name = f"P5en.48xlarge ({region_name})"
+                                    h200_prices[variant_name] = f"${per_gpu_price:.2f}/hr"
+                                    print(f"      ✓ {region_code}: ${price:.2f}/instance → ${per_gpu_price:.2f}/GPU")
+                                    break
+                                # Already per-GPU price
+                                elif 3 < price < 15:
+                                    region_name = region_code.replace('-', ' ').title()
+                                    variant_name = f"P5en.48xlarge ({region_name})"
+                                    h200_prices[variant_name] = f"${price:.2f}/hr"
+                                    print(f"      ✓ {region_code}: ${price:.2f}/GPU")
+                                    break
+                            except ValueError:
+                                continue
+                        if region_code.replace('-', ' ').title() in str(h200_prices):
+                            break
+                            
+            except Exception as e:
+                print(f"      ⚠️ {region_code}: Error - {str(e)[:30]}")
+                continue
+        
+        if h200_prices:
+            print(f"    Found prices from {len(h200_prices)} regions")
+        
+        return h200_prices
     
     def _try_aws_pricing_api(self) -> Dict[str, str]:
         """Try AWS Pricing API endpoints"""
