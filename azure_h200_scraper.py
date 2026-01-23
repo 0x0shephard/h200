@@ -90,70 +90,93 @@ class AzureH200Scraper:
         return False
     
     def _try_azure_pricing_api(self) -> Dict[str, str]:
-        """Try Azure Retail Prices API to get H200 VM pricing"""
+        """Try Azure Retail Prices API to get H200 VM pricing from multiple US regions for volatility"""
         h200_prices = {}
+        us_region_prices = []  # Collect prices from US regions for averaging
         
         try:
             # Azure Retail Prices API - filter for ND H200 v5 series
             # API documentation: https://docs.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
             
-            filter_query = "armSkuName eq 'Standard_ND96isr_H200_v5' and priceType eq 'Consumption'"
-            api_url = f"{self.api_url}?$filter={filter_query}"
+            # Try multiple filters to get comprehensive regional pricing
+            filter_queries = [
+                "armSkuName eq 'Standard_ND96isr_H200_v5' and priceType eq 'Consumption'",
+                "contains(armSkuName, 'ND96isr_H200') and priceType eq 'Consumption'",
+                "contains(productName, 'ND H200 v5') and priceType eq 'Consumption'",
+            ]
             
-            print(f"    Trying Azure Retail Prices API...")
-            print(f"    Filter: {filter_query}")
+            print(f"    Trying Azure Retail Prices API with multi-region collection...")
             
-            response = requests.get(api_url, headers=self.headers, timeout=30)
+            for filter_query in filter_queries:
+                api_url = f"{self.api_url}?$filter={filter_query}"
+                print(f"    Filter: {filter_query[:60]}...")
+                
+                response = requests.get(api_url, headers=self.headers, timeout=30)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    items = data.get('Items', [])
+                    
+                    if items:
+                        print(f"      ✓ API returned {len(items)} pricing items")
+                        break
             
-            if response.status_code == 200:
-                data = response.json()
-                items = data.get('Items', [])
+            if not items:
+                print("      No items found with any filter")
+                return h200_prices
+            
+            for item in items:
+                sku_name = item.get('armSkuName', '')
+                region = item.get('armRegionName', '')
+                unit_price = item.get('unitPrice', 0)
+                currency = item.get('currencyCode', 'USD')
+                product_name = item.get('productName', '')
                 
-                print(f"      ✓ API returned {len(items)} pricing items")
+                # Filter for Linux VMs (not Windows, not Spot)
+                if 'Windows' in product_name or 'Spot' in product_name:
+                    continue
                 
-                for item in items:
-                    sku_name = item.get('armSkuName', '')
-                    region = item.get('armRegionName', '')
-                    unit_price = item.get('unitPrice', 0)
-                    currency = item.get('currencyCode', 'USD')
-                    product_name = item.get('productName', '')
+                if ('H200' in sku_name or 'ND96isr' in sku_name) and unit_price > 0:
+                    # Calculate per-GPU price (8 GPUs per instance)
+                    per_gpu_price = unit_price / 8
                     
-                    # Filter for Linux VMs (not Windows, not Spot)
-                    if 'Windows' in product_name or 'Spot' in product_name:
-                        continue
+                    # Format region name for display
+                    region_display = region.replace('eastus', 'East US').replace('westus', 'West US')
+                    region_display = region_display.replace('northcentralus', 'North Central US')
+                    region_display = region_display.replace('southcentralus', 'South Central US')
+                    region_display = region_display.replace('centralus', 'Central US')
                     
-                    if 'H200' in sku_name or 'ND96isr' in sku_name:
-                        if unit_price > 0:
-                            # Calculate per-GPU price (8 GPUs per instance)
-                            per_gpu_price = unit_price / 8
-                            
-                            # Format region name
-                            region_display = region.replace('eastus', 'East US').replace('westus', 'West US')
-                            region_display = region_display.replace('northcentralus', 'North Central US')
-                            
-                            variant_name = f"ND96isr_H200_v5 ({region_display})"
-                            h200_prices[variant_name] = f"${per_gpu_price:.2f}/hr"
-                            
-                            print(f"        ✓ {variant_name}: ${unit_price:.2f}/instance → ${per_gpu_price:.2f}/GPU")
+                    # Collect US region prices for volatility averaging
+                    if region and ('us' in region.lower() or 'central' in region.lower()):
+                        us_region_prices.append({
+                            'price': per_gpu_price,
+                            'region': region,
+                            'region_display': region_display,
+                            'instance_price': unit_price
+                        })
+                        print(f"        ✓ {region}: ${unit_price:.2f}/instance → ${per_gpu_price:.2f}/GPU ⭐ US REGION")
+                    else:
+                        variant_name = f"ND96isr_H200_v5 ({region_display})"
+                        h200_prices[variant_name] = f"${per_gpu_price:.2f}/hr"
+                        print(f"        ✓ {region}: ${unit_price:.2f}/instance → ${per_gpu_price:.2f}/GPU")
+            
+            # Average US region prices for volatility (like H100 scraper)
+            if us_region_prices:
+                avg_per_gpu_price = sum(p['price'] for p in us_region_prices) / len(us_region_prices)
+                min_price = min(p['price'] for p in us_region_prices)
+                max_price = max(p['price'] for p in us_region_prices)
                 
-                # If no items found with filter, try broader search
-                if not items:
-                    print("      Trying broader search...")
-                    broader_filter = "contains(armSkuName, 'H200')"
-                    api_url = f"{self.api_url}?$filter={broader_filter}"
+                # Create single averaged entry for US regions
+                h200_prices['ND96isr_H200_v5 (US Avg)'] = f"${avg_per_gpu_price:.2f}/hr"
+                
+                print(f"\n      ✅ Averaged {len(us_region_prices)} US region prices: ${avg_per_gpu_price:.2f}/GPU")
+                print(f"      📊 US price range: ${min_price:.2f} - ${max_price:.2f}/GPU (volatility: ${max_price - min_price:.2f})")
+                
+                # Also add individual US region prices for more granularity
+                for p in us_region_prices[:5]:  # Keep top 5 US regions
+                    variant_name = f"ND96isr_H200_v5 ({p['region_display']})"
+                    h200_prices[variant_name] = f"${p['price']:.2f}/hr"
                     
-                    response = requests.get(api_url, headers=self.headers, timeout=30)
-                    if response.status_code == 200:
-                        data = response.json()
-                        items = data.get('Items', [])
-                        print(f"      Broader search returned {len(items)} items")
-                        
-                        for item in items[:10]:  # Limit to first 10
-                            print(f"        - {item.get('armSkuName')}: ${item.get('unitPrice', 0):.2f}")
-                            
-            else:
-                print(f"      Status {response.status_code}")
-                        
         except Exception as e:
             print(f"      Error: {str(e)[:80]}...")
         
