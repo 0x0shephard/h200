@@ -124,45 +124,180 @@ class H200IndexCalculator:
         }
     
     def load_prices_from_combined(self, combined_file: str = "h200_combined_prices.json") -> Dict[str, float]:
-        """Load prices from combined JSON file"""
+        """Load prices from combined JSON file and blend with GetDeploying data"""
         file_path = self.h200_dir / combined_file
-        
+
         if not file_path.exists():
             print(f"⚠️  {combined_file} not found. Loading from individual files...")
             return self.load_from_individual_files()
-        
+
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        
-        prices = {}
+
+        dedicated_prices: Dict[str, float] = {}
         for provider, provider_data in data.get("providers", {}).items():
             price = provider_data.get("price_per_hour", 0)
             if price > 0:
-                prices[provider] = price
-        
+                dedicated_prices[self._normalize_provider_name(provider)] = price
+
+        # Blend with GetDeploying
+        getdeploying_prices = self._load_getdeploying_prices()
+
+        print(f"\n📊 Blending dedicated + GetDeploying prices...\n")
+        prices: Dict[str, float] = {}
+        for provider in set(dedicated_prices) | set(getdeploying_prices):
+            dp = dedicated_prices.get(provider)
+            gp = getdeploying_prices.get(provider)
+
+            if dp and gp:
+                avg = (dp + gp) / 2
+                prices[provider] = avg
+                print(f"   ⚖️  {provider:25s} ${avg:.2f}/hr (avg: ${dp:.2f} dedicated + ${gp:.2f} getdeploying)")
+            elif dp:
+                prices[provider] = dp
+                print(f"   📋 {provider:25s} ${dp:.2f}/hr (dedicated only)")
+            elif gp:
+                prices[provider] = gp
+                print(f"   🌐 {provider:25s} ${gp:.2f}/hr (getdeploying only)")
+
         return prices
+
     
     def load_from_individual_files(self) -> Dict[str, float]:
-        """Load prices from individual JSON files"""
-        prices = {}
-        json_files = list(self.h200_dir.glob("*_h200_prices.json"))
-        
-        print(f"📂 Found {len(json_files)} H200 price files\n")
-        
+        """Load prices from individual JSON files and blend with GetDeploying data."""
+        # Exclude the getdeploying aggregator file — handled separately
+        json_files = [
+            f for f in self.h200_dir.glob("*_h200_prices.json")
+            if 'getdeploying' not in f.name.lower()
+        ]
+
+        print(f"📂 Found {len(json_files)} dedicated H200 price files\n")
+
+        dedicated_prices: Dict[str, float] = {}
         for json_file in json_files:
             try:
                 with open(json_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    provider = data.get("provider", json_file.stem.replace("_h200_prices", ""))
-                    price = self._extract_price_from_data(data)
-                    
-                    if price and price > 0:
-                        prices[provider] = price
-                        print(f"   ✓ {provider:25s} ${price:.2f}/hr")
+                provider = self._normalize_provider_name(
+                    data.get("provider", json_file.stem.replace("_h200_prices", ""))
+                )
+                price = self._extract_price_from_data(data)
+
+                if price and price > 0:
+                    dedicated_prices[provider] = price
+                    print(f"   ✓ {provider:25s} ${price:.2f}/hr (dedicated)")
             except Exception as e:
                 print(f"   ✗ Error loading {json_file}: {e}")
-        
+
+        # Load GetDeploying aggregator prices
+        getdeploying_prices = self._load_getdeploying_prices()
+
+        # Blend: average when both sources exist, fall back to whichever is available
+        print(f"\n📊 Blending dedicated + GetDeploying prices...\n")
+        prices: Dict[str, float] = {}
+        all_providers = set(dedicated_prices) | set(getdeploying_prices)
+
+        for provider in all_providers:
+            dp = dedicated_prices.get(provider)
+            gp = getdeploying_prices.get(provider)
+
+            if dp and gp:
+                avg = (dp + gp) / 2
+                prices[provider] = avg
+                print(f"   ⚖️  {provider:25s} ${avg:.2f}/hr (avg: ${dp:.2f} dedicated + ${gp:.2f} getdeploying)")
+            elif dp:
+                prices[provider] = dp
+                print(f"   📋 {provider:25s} ${dp:.2f}/hr (dedicated only)")
+            elif gp:
+                prices[provider] = gp
+                print(f"   🌐 {provider:25s} ${gp:.2f}/hr (getdeploying only)")
+
         return prices
+
+    def _load_getdeploying_prices(self) -> Dict[str, float]:
+        """Load per-GPU prices from the GetDeploying aggregator JSON."""
+        gd_file = self.h200_dir / "getdeploying_h200_prices.json"
+        prices: Dict[str, float] = {}
+
+        if not gd_file.exists():
+            print("   ⚠️  getdeploying_h200_prices.json not found — run getdeploying_h200_scraper.py first")
+            return prices
+
+        try:
+            with open(gd_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            provider_prices = data.get("prices", {})
+            print(f"\n📂 Found {len(provider_prices)} providers in GetDeploying data\n")
+
+            for provider, price_data in provider_prices.items():
+                provider = self._normalize_provider_name(provider)
+                price = (
+                    price_data.get("price_per_gpu", 0)
+                    if isinstance(price_data, dict)
+                    else float(price_data)
+                )
+                if price and price > 0:
+                    prices[provider] = price
+                    print(f"   ✓ {provider:25s} ${price:.2f}/hr (getdeploying)")
+
+        except Exception as e:
+            print(f"   ✗ Error loading GetDeploying data: {e}")
+
+        return prices
+
+    def _normalize_provider_name(self, name: str) -> str:
+        """Normalise provider names so they match across dedicated scrapers and GetDeploying."""
+        name_map = {
+            "aws": "AWS",
+            "amazon": "AWS",
+            "azure": "Azure",
+            "microsoft": "Azure",
+            "google cloud": "Google Cloud",
+            "gcp": "Google Cloud",
+            "google_cloud": "Google Cloud",
+            "oracle": "Oracle",
+            "oci": "Oracle",
+            "coreweave": "CoreWeave",
+            "core weave": "CoreWeave",
+            "lambda labs": "Lambda Labs",
+            "lambda": "Lambda Labs",
+            "nebius": "Nebius",
+            "crusoe": "Crusoe",
+            "vultr": "Vultr",
+            "runpod": "RunPod",
+            "vast.ai": "Vast.ai",
+            "vast": "Vast.ai",
+            "fluidstack": "FluidStack",
+            "hyperstack": "Hyperstack",
+            "civo": "Civo",
+            "shadeform": "Shadeform",
+            "spheron": "Spheron",
+            "akash": "Akash",
+            "prime intellect": "Prime Intellect",
+            "primeintellect": "Prime Intellect",
+            "valdi": "Valdi",
+            "verda": "Verda",
+            "fal.ai": "Fal.ai",
+            "gmi cloud": "GMI Cloud",
+            "gmi": "GMI Cloud",
+            "jarvislabs": "JarvisLabs",
+            "hyperbolic": "Hyperbolic",
+            "ionstream": "IonStream",
+            "aime": "AIME",
+            "acecloud": "AceCloud",
+            "ace cloud": "AceCloud",
+            "leadergpu": "LeaderGPU",
+            "leader gpu": "LeaderGPU",
+            "computethishub": "ComputeThisHub",
+            "compute this hub": "ComputeThisHub",
+            "siam.ai": "Siam.ai",
+            "sesterce": "Sesterce",
+            "ori": "Ori",
+            "hydrahost": "HydraHost",
+            "iren": "IREN",
+        }
+        return name_map.get(name.lower(), name)
     
     def _extract_price_from_data(self, data: Dict) -> float:
         """Extract price value from provider data"""

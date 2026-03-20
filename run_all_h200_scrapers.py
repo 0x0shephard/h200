@@ -74,8 +74,14 @@ class H200ScraperRunner:
         return results
     
     def combine_prices(self) -> Dict:
-        """Combine all H200 price JSON files into one"""
-        json_files = list(self.h200_dir.glob("*_h200_prices.json"))
+        """Combine all H200 price JSON files into one (excluding GetDeploying aggregator)"""
+        # Exclude the getdeploying file — it has a different schema and is
+        # consumed directly by calculate_h200_index.py at blend time.
+        json_files = [
+            f for f in self.h200_dir.glob("*_h200_prices.json")
+            if 'getdeploying' not in f.name.lower()
+        ]
+
         
         combined = {
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
