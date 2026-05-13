@@ -210,9 +210,39 @@ class CuOracleClient:
     def is_supported(self, asset_id: str) -> bool:
         return bool(self.contract.functions.supportedAssets(asset_id).call())
 
-    def get_latest_price(self, asset_id: str) -> Tuple[int, int]:
-        price, updated_at = self.contract.functions.getLatestPrice(asset_id).call()
+    def get_latest_price(self, asset_id: str, block_identifier=None) -> Tuple[int, int]:
+        price, updated_at = self.contract.functions.getLatestPrice(asset_id).call(
+            block_identifier=block_identifier
+        )
         return int(price), int(updated_at)
+
+    def wait_for_price(
+        self,
+        asset_id: str,
+        expected_price_x18: int,
+        block_number: int,
+        timeout_seconds: int = 60,
+    ) -> Tuple[int, int]:
+        deadline = time.time() + timeout_seconds
+        last_price = 0
+        last_updated_at = 0
+
+        while True:
+            try:
+                latest_block = self.w3.eth.block_number
+                block_identifier = block_number if latest_block >= block_number else "latest"
+                last_price, last_updated_at = self.get_latest_price(
+                    asset_id,
+                    block_identifier=block_identifier,
+                )
+                if last_price == expected_price_x18:
+                    return last_price, last_updated_at
+            except Exception:
+                pass
+
+            if time.time() >= deadline:
+                return last_price, last_updated_at
+            time.sleep(3)
 
     def _fee_params(self, bump: int = 0) -> dict:
         base_fee = int(self.w3.eth.gas_price)
@@ -315,7 +345,11 @@ class CuOracleClient:
                 label=f"reveal {update.asset_key}",
             )
             print(f"  reveal {update.asset_key}: {tx_hash} (gas {receipt['gasUsed']:,})")
-            latest_price, updated_at = self.get_latest_price(update.asset_id)
+            latest_price, updated_at = self.wait_for_price(
+                update.asset_id,
+                update.price_x18,
+                int(receipt["blockNumber"]),
+            )
             results.append(
                 OracleUpdateResult(
                     update=update,
