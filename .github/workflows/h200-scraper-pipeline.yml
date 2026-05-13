@@ -1,9 +1,9 @@
 name: H200 GPU Pricing Pipeline
 
 on:
-  # Run every 4 hours
+  # Keep CuOracle prices fresh under the 1 hour adapter staleness window.
   schedule:
-    - cron: '0 */4 * * *'
+    - cron: '*/30 * * * *'
 
   # Allow manual trigger
   workflow_dispatch:
@@ -17,6 +17,9 @@ on:
 jobs:
   scrape-and-index:
     runs-on: ubuntu-latest
+    concurrency:
+      group: h200-cuoracle-${{ github.ref }}
+      cancel-in-progress: false
 
     steps:
       - name: Checkout repository
@@ -60,31 +63,35 @@ jobs:
           python3 push_to_supabase.py
         timeout-minutes: 5
 
-      - name: Push to Oracle Contract
+      - name: Push H200 Index Price to ByteStrike CuOracle
         env:
           SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+          SEPOLIA_FALLBACK_RPC_URL: https://ethereum-sepolia-rpc.publicnode.com
           ORACLE_UPDATER_PRIVATE_KEY: ${{ secrets.ORACLE_UPDATER_PRIVATE_KEY }}
-          MULTI_ASSET_ORACLE_ADDRESS: ${{ secrets.MULTI_ASSET_ORACLE_ADDRESS }}
+          CU_ORACLE_ADDRESS: ${{ secrets.CU_ORACLE_ADDRESS }}
+          ORACLE_REVEAL_WAIT_SECONDS: "3"
         run: |
           echo "=========================================="
-          echo "STEP 4: Pushing to Oracle Contract"
+          echo "STEP 4: Pushing H200 index to ByteStrike CuOracle"
           echo "=========================================="
           PRICE=$(jq -r '.final_index_price' h200_weighted_index.json)
-          python3 push_to_contract.py $PRICE
-        timeout-minutes: 5
+          python3 push_to_contract.py --price "$PRICE"
+        timeout-minutes: 15
 
-      - name: Push Provider-Specific Prices to Oracle
+      - name: Push H200 Provider-Specific Prices to ByteStrike CuOracle
         env:
           SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+          SEPOLIA_FALLBACK_RPC_URL: https://ethereum-sepolia-rpc.publicnode.com
           ORACLE_UPDATER_PRIVATE_KEY: ${{ secrets.ORACLE_UPDATER_PRIVATE_KEY }}
-          MULTI_ASSET_ORACLE_ADDRESS: ${{ secrets.MULTI_ASSET_ORACLE_ADDRESS }}
+          CU_ORACLE_ADDRESS: ${{ secrets.CU_ORACLE_ADDRESS }}
+          ORACLE_REVEAL_WAIT_SECONDS: "3"
         run: |
           echo "=========================================="
-          echo "STEP 5: Pushing Provider-Specific Prices"
+          echo "STEP 5: Pushing H200 provider-specific prices"
           echo "=========================================="
           echo "Pushing 5 provider prices (AWS, Azure, GCP, Oracle, CoreWeave)"
           python3 Push_h200_provider_specific_markets.py --from-index
-        timeout-minutes: 5
+        timeout-minutes: 20
 
       - name: Upload artifacts
         if: always()

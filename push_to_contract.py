@@ -1,327 +1,198 @@
 #!/usr/bin/env python3
-"""H200 GPU Oracle price updater script."""
+"""Push the aggregate H200 index price to ByteStrike CuOracle on Sepolia."""
 
+import argparse
 import json
 import os
 import sys
 from datetime import datetime, timezone
-from typing import Tuple
+from typing import Optional
 
 from dotenv import load_dotenv
-from eth_account import Account
-from web3 import Web3
+
+from cu_oracle_client import (
+    DEFAULT_CU_ORACLE_ADDRESS,
+    CuOracleClient,
+    OracleUpdate,
+    price_to_x18,
+    x18_to_usd,
+)
 
 load_dotenv()
 
-# Configuration
-SEPOLIA_RPC_URL = os.getenv("SEPOLIA_RPC_URL", "https://rpc.sepolia.org")
-PRIVATE_KEY = os.getenv("ORACLE_UPDATER_PRIVATE_KEY") or os.getenv("PRIVATE_KEY")
-MULTI_ASSET_ORACLE_ADDRESS = os.getenv(
-    "MULTI_ASSET_ORACLE_ADDRESS",
-    "0xB44d652354d12Ac56b83112c6ece1fa2ccEfc683",  # MultiAssetOracle on Sepolia
+H200_ASSET_ID = os.getenv(
+    "H200_ASSET_ID",
+    "0x8340d453df40afe28f3d35784237cd4d87407b4bdf574a1f10a1fbabdc417b83",
 )
-PRICE_DECIMALS = int(os.getenv("ORACLE_DECIMALS", "18"))
-
-# H200 Asset ID (keccak256("H200_HOURLY"))
-H200_ASSET_ID = "0x4d8595569ab5d2563e4c149c5de961d0e0732cd0560020b3474d281189c2571e"
-
-# MultiAssetOracle ABI (minimal subset for price updates)
-MULTI_ASSET_ORACLE_ABI = [
-    {
-        "type": "function",
-        "name": "updatePrice",
-        "inputs": [
-            {"name": "assetId", "type": "bytes32", "internalType": "bytes32"},
-            {"name": "newPrice", "type": "uint256", "internalType": "uint256"},
-        ],
-        "outputs": [],
-        "stateMutability": "nonpayable",
-    },
-    {
-        "type": "function",
-        "name": "getPrice",
-        "inputs": [
-            {"name": "assetId", "type": "bytes32", "internalType": "bytes32"}
-        ],
-        "outputs": [
-            {"name": "", "type": "uint256", "internalType": "uint256"}
-        ],
-        "stateMutability": "view",
-    },
-    {
-        "type": "function",
-        "name": "getPriceData",
-        "inputs": [
-            {"name": "assetId", "type": "bytes32", "internalType": "bytes32"}
-        ],
-        "outputs": [
-            {"name": "price", "type": "uint256", "internalType": "uint256"},
-            {"name": "updatedAt", "type": "uint256", "internalType": "uint256"}
-        ],
-        "stateMutability": "view",
-    },
-    {
-        "type": "function",
-        "name": "isAssetRegistered",
-        "inputs": [
-            {"name": "assetId", "type": "bytes32", "internalType": "bytes32"}
-        ],
-        "outputs": [
-            {"name": "", "type": "bool", "internalType": "bool"}
-        ],
-        "stateMutability": "view",
-    },
-]
+H200_MARKET = "H200-PERP-V2"
+H200_ASSET_KEY = "H200"
 
 
-class H200OraclePriceUpdater:
-    """Update H200 GPU rental prices on the multi-asset oracle contract."""
+def get_private_key() -> Optional[str]:
+    return (
+        os.getenv("ORACLE_UPDATER_PRIVATE_KEY")
+        or os.getenv("PRIVATE_KEY")
+        or os.getenv("WALLET_PRIVATE_KEY")
+    )
 
-    def __init__(self, rpc_url: str, private_key: str, contract_address: str, decimals: int):
-        self.w3 = Web3(Web3.HTTPProvider(rpc_url))
-        if not self.w3.is_connected():
-            raise ConnectionError(f"Failed to connect to Sepolia RPC: {rpc_url}")
 
-        self.account = Account.from_key(private_key)
-        self.address = self.account.address
-        self.contract = self.w3.eth.contract(
-            address=Web3.to_checksum_address(contract_address),
-            abi=MULTI_ASSET_ORACLE_ABI,
-        )
-        self.decimals = decimals
+def get_oracle_address() -> str:
+    return (
+        os.getenv("CU_ORACLE_ADDRESS")
+        or os.getenv("BYTESTRIKE_CU_ORACLE_ADDRESS")
+        or DEFAULT_CU_ORACLE_ADDRESS
+    )
 
-        balance_eth = self.w3.from_wei(self.w3.eth.get_balance(self.address), "ether")
 
-        print("=" * 60)
-        print("H200 ORACLE PRICE UPDATER")
-        print("=" * 60)
-        print(f"Connected to Sepolia testnet")
-        print(f"   Chain ID: {self.w3.eth.chain_id}")
-        print(f"   Latest block: {self.w3.eth.block_number}")
-        print(f"   Updater address: {self.address}")
-        print(f"   Balance: {balance_eth:.4f} ETH")
-        print(f"   MultiAssetOracle: {contract_address}")
-        print(f"   Price decimals: {self.decimals}")
-        print("")
+def load_index_price(path: str) -> float:
+    with open(path, "r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    price = data.get("final_index_price")
+    if price is None:
+        raise ValueError(f"{path} does not contain final_index_price")
+    return float(price)
 
-        # Check H200 asset registration
-        is_registered = self.is_asset_registered()
-        if is_registered:
-            current_price = self.get_current_price()
-            print(f"✓ H200_HOURLY asset is registered")
-            print(f"   Current price: ${current_price:.6f}/hr")
-        else:
-            print("✗ H200_HOURLY asset NOT registered!")
-            print("   Run the deployment script first to register the asset")
-            sys.exit(1)
-        print("")
 
-    def _build_dynamic_fee(self) -> Tuple[int, int]:
-        """Calculate dynamic gas fees."""
-        base_fee = self.w3.eth.gas_price
-        max_priority = self.w3.to_wei(1, "gwei")
-        max_fee = max(base_fee * 2, max_priority * 2)
-        return max_fee, max_priority
+def log_update(price_usd: float, result) -> None:
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "asset": H200_ASSET_KEY,
+        "market": H200_MARKET,
+        "asset_id": H200_ASSET_ID,
+        "price_usd": price_usd,
+        "price_x18": price_to_x18(price_usd),
+        "commit_tx_hash": result.commit_hash,
+        "commitment_hash": result.commitment_hash,
+        "tx_hash": result.reveal_hash,
+        "commit_timestamp": result.updated_at,
+        "contract_address": get_oracle_address(),
+        "network": "sepolia",
+    }
 
-    def _send_transaction(self, func, gas_limit: int) -> Tuple[str, dict]:
-        """Build, sign, and send a transaction to the blockchain."""
-        max_fee, max_priority = self._build_dynamic_fee()
-        tx = func.build_transaction(
-            {
-                "from": self.address,
-                "nonce": self.w3.eth.get_transaction_count(self.address),
-                "gas": gas_limit,
-                "maxFeePerGas": max_fee,
-                "maxPriorityFeePerGas": max_priority,
-                "chainId": 11155111,
-            }
-        )
-        signed = self.account.sign_transaction(tx)
-
-        if hasattr(signed, "raw_transaction"):
-            raw_tx = signed.raw_transaction
-        elif hasattr(signed, "rawTransaction"):
-            raw_tx = signed.rawTransaction
-        else:
-            raw_tx = signed
-
-        tx_hash = self.w3.eth.send_raw_transaction(raw_tx)
-        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=180)
-        return tx_hash.hex(), dict(receipt)
-
-    def is_asset_registered(self) -> bool:
-        """Check if H200 asset is registered in the oracle."""
+    log_file = "h200_oracle_update_log.json"
+    logs = []
+    if os.path.exists(log_file):
         try:
-            return self.contract.functions.isAssetRegistered(H200_ASSET_ID).call()
-        except Exception:
-            return False
-
-    def get_current_price(self) -> float:
-        """Get current H200 price from the oracle."""
-        try:
-            price_raw = self.contract.functions.getPrice(H200_ASSET_ID).call()
-            return price_raw / (10 ** self.decimals)
-        except Exception:
-            return 0.0
-
-    def update_price(self, price_usd: float) -> str:
-        """Update H200 price on the oracle."""
-        price_scaled = int(price_usd * (10 ** self.decimals))
-        current_price = self.get_current_price()
-
-        print("=" * 60)
-        print("UPDATING H200 PRICE")
-        print("=" * 60)
-
-        if current_price > 0:
-            delta = price_usd - current_price
-            change_pct = (delta / current_price) * 100
-            print(f"Current H200 price: ${current_price:.6f}/hr")
-            print(f"New H200 price:     ${price_usd:.6f}/hr")
-            print(f"Change:             {delta:+.6f} ({change_pct:+.2f}%)")
-        else:
-            print(f"New H200 price: ${price_usd:.6f}/hr")
-
-        print("")
-        print("Sending transaction...")
-
-        tx_hash, receipt = self._send_transaction(
-            self.contract.functions.updatePrice(H200_ASSET_ID, price_scaled),
-            gas_limit=100_000,
-        )
-
-        print(f"✓ Transaction confirmed: {tx_hash}")
-        print(f"   Gas used: {receipt['gasUsed']:,}")
-        print("")
-
-        # Verify the update
-        latest_price = self.get_current_price()
-        if abs(latest_price - price_usd) < 0.000001:  # Account for rounding
-            print(f"✓ On-chain price verified: ${latest_price:.6f}/hr")
-        else:
-            print(f"⚠ WARNING: On-chain price mismatch!")
-            print(f"   Expected: ${price_usd:.6f}/hr")
-            print(f"   Got: ${latest_price:.6f}/hr")
-
-        return tx_hash
-
-    def log_update(self, price_usd: float, tx_hash: str) -> None:
-        """Log the update to a JSON file."""
-        log_entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "asset": "H200_HOURLY",
-            "price_usd": price_usd,
-            "tx_hash": tx_hash,
-            "block_number": self.w3.eth.block_number,
-            "contract_address": MULTI_ASSET_ORACLE_ADDRESS,
-            "network": "sepolia",
-            "updater_address": self.address,
-        }
-
-        log_file = "h200_oracle_update_log.json"
-        logs = []
-
-        if os.path.exists(log_file):
-            try:
-                with open(log_file, "r", encoding="utf-8") as handle:
-                    logs = json.load(handle)
-                if not isinstance(logs, list):
-                    logs = []
-            except Exception:
+            with open(log_file, "r", encoding="utf-8") as handle:
+                logs = json.load(handle)
+            if not isinstance(logs, list):
                 logs = []
+        except Exception:
+            logs = []
 
-        logs.append(log_entry)
-        logs = logs[-100:]  # Keep last 100 entries
+    logs.append(entry)
+    logs = logs[-100:]
+    with open(log_file, "w", encoding="utf-8") as handle:
+        json.dump(logs, handle, indent=2)
+    print(f"Logged update to {log_file}")
 
-        try:
-            with open(log_file, "w", encoding="utf-8") as handle:
-                json.dump(logs, handle, indent=2)
-            print(f"✓ Logged update to {log_file}")
-        except Exception as exc:
-            print(f"⚠ Failed to write log file: {exc}")
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Push aggregate H200 index price to ByteStrike CuOracle",
+    )
+    parser.add_argument(
+        "positional_price",
+        nargs="?",
+        type=float,
+        help="H200 hourly price in USD. Kept for existing workflow compatibility.",
+    )
+    parser.add_argument("--price", type=float, help="H200 hourly price in USD")
+    parser.add_argument(
+        "--index-file",
+        default="h200_weighted_index.json",
+        help="Weighted index JSON to read when no price is supplied",
+    )
+    parser.add_argument("--show-only", action="store_true", help="Only show current oracle state")
+    parser.add_argument("--no-verify", action="store_true", help="Skip post-reveal verification")
+    parser.add_argument(
+        "--reveal-wait-seconds",
+        type=int,
+        default=int(os.getenv("ORACLE_REVEAL_WAIT_SECONDS", "3")),
+        help="Seconds to wait between commit and reveal",
+    )
+    parser.add_argument(
+        "--allow-high",
+        action="store_true",
+        help="Allow prices above $100/hr without aborting",
+    )
+    return parser.parse_args()
 
 
 def main() -> None:
-    """Main entry point for updating H200 GPU price."""
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Update H200 GPU hourly rental rate on MultiAssetOracle",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Update H200 price to $3.53/hour
-  python scripts/update_h200_oracle_price.py 3.53
-
-  # Update H200 price to $4.00/hour
-  python scripts/update_h200_oracle_price.py 4.00
-
-Note:
-  - Requires PRIVATE_KEY or ORACLE_UPDATER_PRIVATE_KEY in .env
-  - Requires sufficient Sepolia ETH for gas fees
-  - H200 asset must be registered in the oracle first
-        """,
-    )
-    parser.add_argument(
-        "price",
-        type=float,
-        help="H200 hourly rental price in USD (e.g., 3.53)",
-    )
-
-    args = parser.parse_args()
-
-    # Validate environment
-    if not PRIVATE_KEY:
-        print("ERROR: Private key not configured")
-        print("Set ORACLE_UPDATER_PRIVATE_KEY or PRIVATE_KEY environment variable in .env")
+    args = parse_args()
+    private_key = get_private_key()
+    if not private_key:
+        print("ERROR: Set ORACLE_UPDATER_PRIVATE_KEY, PRIVATE_KEY, or WALLET_PRIVATE_KEY")
         sys.exit(1)
 
-    # Validate price
-    if args.price <= 0:
-        print(f"ERROR: Price must be > 0 (got {args.price})")
-        sys.exit(1)
-
-    if args.price > 100:
-        print(f"WARNING: H200 price ${args.price:.2f}/hr seems unusually high")
-        response = input("Continue anyway? (y/N): ")
-        if response.lower() != "y":
-            print("Aborted.")
-            sys.exit(0)
-
-    # Initialize updater
     try:
-        updater = H200OraclePriceUpdater(
-            rpc_url=SEPOLIA_RPC_URL,
-            private_key=PRIVATE_KEY,
-            contract_address=MULTI_ASSET_ORACLE_ADDRESS,
-            decimals=PRICE_DECIMALS,
+        client = CuOracleClient(
+            rpc_url=os.getenv("SEPOLIA_RPC_URL"),
+            private_key=private_key,
+            oracle_address=get_oracle_address(),
         )
-    except Exception as exc:
-        print(f"\nERROR: Failed to initialize updater: {exc}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+        client.print_connection_summary()
 
-    # Update price
-    try:
-        tx_hash = updater.update_price(args.price)
-        updater.log_update(args.price, tx_hash)
+        if not client.is_supported(H200_ASSET_ID):
+            raise RuntimeError(f"{H200_ASSET_KEY} asset is not supported: {H200_ASSET_ID}")
 
-        print("")
-        print("=" * 60)
-        print("SUCCESS! H200 PRICE UPDATED ON-CHAIN")
-        print("=" * 60)
-        print(f"   Transaction: {tx_hash}")
-        print(f"   Etherscan: https://sepolia.etherscan.io/tx/{tx_hash}")
-        print("=" * 60)
-        sys.exit(0)
+        current_price_x18, updated_at = client.get_latest_price(H200_ASSET_ID)
+        print("Current H200 index oracle price:")
+        print(f"  {H200_ASSET_KEY} ({H200_MARKET}): ${x18_to_usd(current_price_x18):.6f}/hr")
+        print(f"  Commit timestamp: {updated_at}")
+
+        if args.show_only:
+            return
+
+        price_usd = (
+            args.price
+            if args.price is not None
+            else args.positional_price
+            if args.positional_price is not None
+            else load_index_price(args.index_file)
+        )
+
+        if price_usd <= 0:
+            raise ValueError(f"Price must be positive, got {price_usd}")
+        if price_usd > 100 and not args.allow_high:
+            raise ValueError(f"Refusing unusually high H200 price ${price_usd:.2f}/hr")
+
+        current_usd = x18_to_usd(current_price_x18)
+        change_pct = ((price_usd - current_usd) / current_usd * 100) if current_usd else 0
+        print("Prepared CuOracle update:")
+        print(
+            f"  {H200_ASSET_KEY} ({H200_MARKET}): "
+            f"${current_usd:.6f} -> ${price_usd:.6f}/hr ({change_pct:+.2f}%)"
+        )
+
+        updates = [
+            OracleUpdate(
+                asset_key=H200_ASSET_KEY,
+                market=H200_MARKET,
+                asset_id=H200_ASSET_ID,
+                price_usd=price_usd,
+            )
+        ]
+        results = client.commit_and_reveal(
+            updates,
+            reveal_wait_seconds=args.reveal_wait_seconds,
+            verify=not args.no_verify,
+        )
+        log_update(price_usd, results[0])
+
+        print("=" * 70)
+        print("SUCCESS! H200 INDEX PRICE UPDATED ON-CHAIN")
+        print("=" * 70)
+        print(f"  Reveal transaction: {results[0].reveal_hash}")
+        print(f"  Etherscan: https://sepolia.etherscan.io/tx/{results[0].reveal_hash}")
     except Exception as exc:
-        print("")
-        print("=" * 60)
-        print("ERROR: PRICE UPDATE FAILED")
-        print("=" * 60)
-        print(f"   {exc}")
+        print("=" * 70)
+        print("ERROR: H200 CUORACLE UPDATE FAILED")
+        print("=" * 70)
+        print(f"  {exc}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
