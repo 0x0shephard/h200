@@ -3,8 +3,7 @@ name: H200 GPU Pricing Pipeline
 on:
   # Keep CuOracle prices fresh under the 1 hour adapter staleness window.
   schedule:
-    - cron: '0,40 0-23/2 * * *'  # Runs at :00 and :40 on even UTC hours
-    - cron: '20 1-23/2 * * *'    # Runs at :20 on odd UTC hours
+    - cron: '0 */4 * * *'  # Runs every 4 hours
 
   # Allow manual trigger
   workflow_dispatch:
