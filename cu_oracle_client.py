@@ -254,6 +254,21 @@ class CuOracleClient:
         max_fee = max(base_fee * (2 + bump), priority * 2)
         return {"maxFeePerGas": max_fee, "maxPriorityFeePerGas": priority}
 
+    def _gas_with_headroom(self, func, floor: int) -> int:
+        """Gas limit from a live estimate plus headroom, never below `floor`.
+
+        Sepolia repriced new storage writes at block 11856337 (2026-10-06), which
+        roughly tripled commitPrice gas and broke the old hardcoded limits.
+        Estimating per transaction keeps publishing working across repricings.
+        """
+        multiplier = Decimal(os.getenv("ORACLE_GAS_MULTIPLIER", "1.3"))
+        try:
+            estimate = func.estimate_gas({"from": self.address})
+        except Exception as exc:
+            print(f"  Gas estimate failed ({exc}); using floor {floor:,}")
+            return floor
+        return max(floor, int(Decimal(estimate) * multiplier) + 10_000)
+
     def _send_transaction(self, func, gas_limit: int, label: str) -> Tuple[str, dict]:
         last_error: Optional[Exception] = None
         for attempt in range(4):
@@ -262,7 +277,7 @@ class CuOracleClient:
                     {
                         "from": self.address,
                         "nonce": self.w3.eth.get_transaction_count(self.address, "pending"),
-                        "gas": gas_limit,
+                        "gas": self._gas_with_headroom(func, gas_limit),
                         "chainId": SEPOLIA_CHAIN_ID,
                         **self._fee_params(attempt),
                     }
