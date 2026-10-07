@@ -254,6 +254,23 @@ class CuOracleClient:
         max_fee = max(base_fee * (2 + bump), priority * 2)
         return {"maxFeePerGas": max_fee, "maxPriorityFeePerGas": priority}
 
+    def _wait_for_no_inflight(self, max_wait_seconds: int = 180) -> None:
+        """Wait until the updater has no pending transaction on the node.
+
+        The updater is an EIP-7702 delegated account, and Sepolia nodes allow a
+        delegated account only one in-flight transaction ("in-flight transaction
+        limit reached for delegated accounts"). Publishers share the updater, and
+        each run sends several transactions back to back.
+        """
+        deadline = time.time() + max_wait_seconds
+        while time.time() < deadline:
+            pending = self.w3.eth.get_transaction_count(self.address, "pending")
+            latest = self.w3.eth.get_transaction_count(self.address, "latest")
+            if pending <= latest:
+                return
+            time.sleep(4)
+        print("  Updater still has a pending transaction; sending anyway")
+
     def _gas_with_headroom(self, func, floor: int) -> int:
         """Gas limit from a live estimate plus headroom, never below `floor`.
 
@@ -271,7 +288,7 @@ class CuOracleClient:
 
     def _send_transaction(self, func, gas_limit: int, label: str) -> Tuple[str, dict]:
         last_error: Optional[Exception] = None
-        for attempt in range(4):
+        for attempt in range(8):
             try:
                 tx = func.build_transaction(
                     {
@@ -286,6 +303,7 @@ class CuOracleClient:
                 raw_tx = getattr(signed, "raw_transaction", None) or getattr(
                     signed, "rawTransaction", None
                 )
+                self._wait_for_no_inflight()
                 tx_hash = self.w3.eth.send_raw_transaction(raw_tx)
                 receipt = self.w3.eth.wait_for_transaction_receipt(
                     tx_hash,
@@ -304,10 +322,11 @@ class CuOracleClient:
                     or "nonce too low" in message
                     or "already known" in message
                     or "temporarily unavailable" in message
+                    or "in-flight transaction limit" in message
                 )
-                if not retryable or attempt == 3:
+                if not retryable or attempt == 7:
                     break
-                time.sleep(3 + attempt * 2)
+                time.sleep(min(60, 10 * (attempt + 1)) if "in-flight" in message else 3 + attempt * 2)
         raise RuntimeError(f"{label} transaction failed: {last_error}")
 
     def commit_and_reveal(
